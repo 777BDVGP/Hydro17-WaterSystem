@@ -1,5 +1,5 @@
 {
-  "version": "2.0.1",
+  "version": "2.0.2",
   "bin": "firmware/hydro17.bin",
-  "notes": "Memory guard fitted to the new core (no reboot after a firmware check); memory row on ABOUT"
+  "notes": "Built-in networks of a private build are kept in the WiFi Networks list (survive a GitHub update)"
 }

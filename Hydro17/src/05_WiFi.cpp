@@ -210,6 +210,30 @@ static void wifiImportOld(){
 	SPIFFS.remove("/ProfileSwitch.txt");
 }
 
+// Write EVERY built-in network (KNOWN_NETS) into /WiFiConfig.json, not only
+// the one joined: after "INSTALL FROM GITHUB" the controller runs the public
+// firmware, which has no built-in networks, and then knows only this file —
+// so a unit set up at one house must still find the other house's network.
+// The gateway is left out and learned from the router at the first join
+// there (wifiNeedsLearning).  An entry already in the file (same SSID) is
+// kept as it is (it may hold a learned gateway or a user change).
+static void wifiSeedKnown(){
+	if (KNOWN_NET_COUNT == 0) return;
+	WifiCfg nets[WIFI_MAX_NETS];
+	int n = wifiLoadNets(nets, WIFI_MAX_NETS);
+	for (int i = 0; i < KNOWN_NET_COUNT; i++){
+		bool have = false;
+		for (int j = 0; j < n; j++) if (nets[j].ssid == KNOWN_NETS[i].ssid) have = true;
+		if (have || n >= WIFI_MAX_NETS) continue;
+		WifiCfg c;
+		c.ssid = KNOWN_NETS[i].ssid; c.pass = KNOWN_NETS[i].pass; c.dhcp = false;
+		c.ip   = IPAddress(KNOWN_NETS[i].ip[0], KNOWN_NETS[i].ip[1], KNOWN_NETS[i].ip[2], KNOWN_NETS[i].ip[3]);
+		nets[n++] = c;                     // appended: existing entries keep their order
+		SaveGenReport("WiFi: built-in network " + c.ssid + " (" + c.ip.toString() + ") added to the saved networks");
+	}
+	wifiSaveNets(nets, n);
+}
+
 // ── Step 1: saved networks ───────────────────────────────────────────────────
 // Scan, then try the saved networks that are in range, strongest first, and
 // after them the ones not seen (hidden SSIDs, weak signal).  With a single
@@ -495,6 +519,7 @@ bool SetupWiFi() {
 	WiFi.setSleep(false);
 
 	wifiImportOld();                 // first start after the update: keep the old network
+	wifiSeedKnown();                 // all built-in networks into the file (survive a public update)
 
 	// CONTROLLER DIS/EN (GPIO 34) held HIGH or BOOT (GPIO 0) held LOW at
 	// power-on -> setup hotspot (add / change a network).
