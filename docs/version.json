@@ -1,0 +1,5 @@
+{
+  "version": "2.0.0",
+  "bin": "firmware/hydro17.bin",
+  "notes": "First public version: new core, WiFi networks list + setup hotspot, strongest access point, rain gauge interface, firmware update from GitHub on ABOUT"
+}
