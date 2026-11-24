@@ -1,5 +1,5 @@
 {
-  "version": "2.0.2",
+  "version": "2.0.3",
   "bin": "firmware/hydro17.bin",
-  "notes": "Built-in networks of a private build are kept in the WiFi Networks list (survive a GitHub update)"
+  "notes": "WiFi Networks with networks-in-range list on SETTINGS; NETWORK block on ABOUT"
 }

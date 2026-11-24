@@ -147,6 +147,7 @@ void AddRoutes(){
 	server.on("/wifi",               handleWifiNets);           // 05_WiFi.cpp — WiFi Networks page
 	server.on("/wifinet/add",    HTTP_POST, handleWifiNetAdd);    // 05_WiFi.cpp
 	server.on("/wifinet/delete", HTTP_POST, handleWifiNetDelete); // 05_WiFi.cpp
+	server.on("/wifiscan",           handleWifiScan);           // 05_WiFi.cpp — networks in range (async scan)
 	server.on("/removewifi",         handleRemoveWifi);         // 12_Settings.cpp
 	server.on("/ntfy",               handleNtfy);               // 16_NTFY.cpp
 	server.on("/applydate",          handleApplyDate);          // 16_NTFY.cpp

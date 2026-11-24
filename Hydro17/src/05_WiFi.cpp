@@ -599,6 +599,9 @@ Changes are used at the next start. Passwords are never shown.</p>
 static const char WN_SECTION_ADD[] PROGMEM = R"HTML(</table>
 <div style='margin:8px 12px;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font-size:13px'>
 <b>Add a network</b> (the same name again replaces that entry)<br>
+<select id='wn_scan' onchange="if(this.value)document.getElementById('wn_ssid').value=this.value" style='width:300px;margin:4px 0'>
+<option value=''>Networks in range: scanning...</option></select>
+<input type='button' value='SCAN AGAIN' onclick='wnScan()' style='font-size:12px;padding:3px 10px'><br>
 <input id='wn_ssid' placeholder='WiFi network name' style='width:220px;margin:4px 0'>
 <input id='wn_pass' type='password' placeholder='password (empty = open network)' style='width:220px;margin:4px 0'><br>
 <label><input type='radio' name='wn_mode' id='wn_dhcp' onclick="wnFix(0)"> Automatic IP (DHCP)</label>
@@ -622,24 +625,29 @@ function wnAdd(){var v=function(i){return encodeURIComponent(document.getElement
  wnPost('/wifinet/add',b);}
 function wnDel(s,cur){if(!confirm('Delete the WiFi network '+s+'?'+(cur?' The controller is connected to it now: it stays connected until the next start, then tries the other networks.':'')))return;
  wnPost('/wifinet/delete','ssid='+encodeURIComponent(s));}
+var wnTries=0;
+function wnScanShow(j){var sel=document.getElementById('wn_scan');sel.innerHTML='';
+ var o=document.createElement('option');o.value='';
+ o.textContent=j.nets.length?('Networks in range ('+j.nets.length+') - pick one:'):'No networks in range - SCAN AGAIN';sel.appendChild(o);
+ j.nets.forEach(function(n){var e=document.createElement('option');e.value=n.s;
+  e.textContent=n.s+'   ('+n.r+' dBm'+(n.l?', locked':', open')+(n.v?', saved':'')+')';sel.appendChild(e);});}
+function wnPoll(){fetch('/wifiscan').then(function(r){return r.json();}).then(function(j){
+ if(j.status=='done'){wnScanShow(j);return;}
+ if(++wnTries<20)setTimeout(wnPoll,1000);else document.getElementById('wn_scan').options[0].textContent='Scan failed - SCAN AGAIN';})
+ .catch(function(){if(++wnTries<20)setTimeout(wnPoll,1500);});}
+function wnScan(){wnTries=0;document.getElementById('wn_scan').innerHTML="<option value=''>Networks in range: scanning...</option>";
+ fetch('/wifiscan?start=1').then(function(){setTimeout(wnPoll,2500);}).catch(function(){setTimeout(wnPoll,2500);});}
+wnScan();
 </script>
 )HTML";
 
-// GET /wifi — the WiFi Networks page.
-void handleWifiNets(AsyncWebServerRequest *request){
-	AsyncResponseStream *r = beginHtmlStream(request);
-	if (!r) return;
+// WiFi Networks section: connection line, saved list with DELETE, ADD form.
+// Shown on the SETTINGS page (like the Rain Gauge) and on /wifi.
+void appendWifiNetsSection(AsyncResponseStream* r){
 	WifiCfg nets[WIFI_MAX_NETS];
 	int n = wifiLoadNets(nets, WIFI_MAX_NETS);
 	String cur = WiFi.SSID();
 
-	r->print(webHeadPage);
-	append_FileOption(FA_MESS_06, r);
-	append_UL_OptionsMenu(PS_SETTINGS, r);
-	r->print("<div style='font-size:13px;text-align:center;margin-top:10px'>Connected to <b>" + wifiHtmlEsc(cur) +
-	         "</b> via AP " + WiFi.BSSIDstr() + " (channel " + String(WiFi.channel()) + ", " +
-	         String(WiFi.RSSI()) + " dBm) &mdash; IP " + WiFi.localIP().toString() +
-	         (WiFiSource.length() ? " (" + WiFiSource + ")" : String("")) + "</div>");
 	r->print(FPSTR(WN_SECTION_TOP));
 	if (n == 0) r->print("<tr><td colspan='3'>(no networks saved)</td></tr>");
 	for (int i = 0; i < n; i++){
@@ -653,7 +661,20 @@ void handleWifiNets(AsyncWebServerRequest *request){
 		         "</td><td style='width:15%;white-space:nowrap'><button style='background:#dc2626;padding:2px 8px;font-size:11px' data-s='" + s +
 		         "' onclick='wnDel(this.dataset.s," + (on ? "1" : "0") + ")'>DELETE</button></td></tr>");
 	}
+	r->print("</table><div style='font-size:12px;color:#475569;text-align:center;margin:4px 0'>Connected to <b>" + wifiHtmlEsc(cur) +
+	         "</b> via access point " + WiFi.BSSIDstr() + " (channel " + String(WiFi.channel()) + ", " +
+	         String(WiFi.RSSI()) + " dBm) &mdash; IP " + WiFi.localIP().toString() + "</div><table>");
 	r->print(FPSTR(WN_SECTION_ADD));
+}
+
+// GET /wifi — the same section on its own page.
+void handleWifiNets(AsyncWebServerRequest *request){
+	AsyncResponseStream *r = beginHtmlStream(request);
+	if (!r) return;
+	r->print(webHeadPage);
+	append_FileOption(FA_MESS_06, r);
+	append_UL_OptionsMenu(PS_SETTINGS, r);
+	appendWifiNetsSection(r);
 	r->print(webHTMLEnd);
 	request->send(r);
 }
@@ -677,8 +698,83 @@ void handleWifiNetDelete(AsyncWebServerRequest *request){
 	request->send(200, "text/plain", "OK - " + s + " deleted");
 }
 
+// ── Networks in range (Settings "Add a network" drop-down) ───────────────────
+// GET /wifiscan?start=1 asks for a scan; GET /wifiscan returns
+// {"status":"scanning"} or {"status":"done","nets":[{s,r,l,v},...]}
+// (SSID, RSSI dBm, locked, already saved) strongest first, each SSID once.
+// The scan itself is started and collected in loop() (MaintainWifiNets) with
+// the non-blocking WiFi.scanNetworks(true) — the controller keeps running and
+// stays connected; async_tcp only reads the finished result.
+static volatile int  wnScanState = 0;      // 0 idle, 1 requested, 2 scanning, 3 done
+static String        wnScanJson;           // written by loop() before state 3
+
+void handleWifiScan(AsyncWebServerRequest *request){
+	if (request->hasArg("start")){
+		if (wnScanState != 1 && wnScanState != 2) wnScanState = 1;
+		request->send(200, "application/json", "{\"status\":\"scanning\"}");
+		return;
+	}
+	if (wnScanState == 3) request->send(200, "application/json", wnScanJson);
+	else                  request->send(200, "application/json", "{\"status\":\"scanning\"}");
+}
+
+static void wifiScanStep(){
+	static uint32_t startMs = 0;
+	if (wnScanState == 1){
+		WiFi.scanDelete();
+		if (WiFi.scanNetworks(true) == WIFI_SCAN_FAILED){        // true = async, returns at once
+			wnScanJson = "{\"status\":\"done\",\"nets\":[]}";
+			wnScanState = 3;
+			return;
+		}
+		startMs = millis();
+		wnScanState = 2;
+		return;
+	}
+	if (wnScanState != 2) return;
+	int n = WiFi.scanComplete();
+	if (n == WIFI_SCAN_RUNNING){
+		if (millis() - startMs < 15000) return;
+		n = 0;                                                    // took too long: report nothing
+	}
+	if (n < 0) n = 0;
+
+	WifiCfg saved[WIFI_MAX_NETS];
+	int ns = wifiLoadNets(saved, WIFI_MAX_NETS);
+	JsonDocument doc;
+	doc["status"] = "done";
+	JsonArray a = doc["nets"].to<JsonArray>();
+	bool used[64] = { false };
+	int m = n < 64 ? n : 64;
+	for (int k = 0; k < m; k++){                                  // strongest first, each SSID once
+		int best = -1;
+		for (int j = 0; j < m; j++)
+			if (!used[j] && (best < 0 || WiFi.RSSI(j) > WiFi.RSSI(best))) best = j;
+		if (best < 0) break;
+		used[best] = true;
+		String s = WiFi.SSID(best);
+		if (s.length() == 0) continue;                            // hidden network
+		bool dup = false;
+		for (JsonObject o : a) if (s == o["s"].as<const char*>()) { dup = true; break; }
+		if (dup) continue;
+		bool isSaved = false;
+		for (int i = 0; i < ns; i++) if (saved[i].ssid == s) isSaved = true;
+		JsonObject o = a.add<JsonObject>();
+		o["s"] = s;
+		o["r"] = WiFi.RSSI(best);
+		o["l"] = WiFi.encryptionType(best) != WIFI_AUTH_OPEN;
+		o["v"] = isSaved;
+	}
+	WiFi.scanDelete();
+	String out;
+	serializeJson(doc, out);
+	wnScanJson  = out;
+	wnScanState = 3;
+}
+
 // Called every 10 ms from loop() (MaintainTimeCheck).
 void MaintainWifiNets(){
+	wifiScanStep();
 	if (wnAddReq){
 		wifiAddNet(wnPendingAdd);
 		SaveGenReport("WiFi: network " + wnPendingAdd.ssid + " added on the WiFi page" +

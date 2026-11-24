@@ -61,6 +61,8 @@ int  GetDifferenceBetweenTwoDates(String StartDate, String EndDate);
 bool SetupWiFi();
 void ClearWifiSettings();
 void handleWifiNets(AsyncWebServerRequest *request);
+void appendWifiNetsSection(AsyncResponseStream* r);
+void handleWifiScan(AsyncWebServerRequest *request);
 void handleWifiNetAdd(AsyncWebServerRequest *request);
 void handleWifiNetDelete(AsyncWebServerRequest *request);
 void MaintainWifiNets();

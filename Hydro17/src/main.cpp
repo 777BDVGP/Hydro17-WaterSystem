@@ -128,7 +128,7 @@
 #include <Arduino.h>
 
 // Firmware version — shown on ABOUT, compared by CHECK FOR UPDATE. Bump it with every release.
-	#define FW_VERSION "2.0.2"
+	#define FW_VERSION "2.0.3"
 
 	#define DEBUG 0  // Set to 1 to see output, 0 for Production 
 

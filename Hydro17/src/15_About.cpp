@@ -148,15 +148,24 @@ static void buildProjectInfoDiv(AsyncResponseStream* r) {
 	r->print(GetBuildDate());
 	r->print(F("</td></tr>"
 	           "<tr><td>PCB</td><td>WEMOS_ESP32_2S_V5a</td></tr>"
-	           "<tr><td>Board</td><td>WEMOS LOLIN S2 Mini</td></tr>"
-	           "<tr><td>IP</td><td>"));
-	r->print(WiFi.localIP().toString());
-	r->print(F("</td></tr><tr><td>MAC</td><td>"));
-	r->print(WiFi.macAddress());
-	r->print(F("</td></tr><tr><td>Memory</td><td>"));
-	r->print(String(ESP.getFreeHeap() / 1024) + " KB free (largest block " + String(ESP.getMaxAllocHeap() / 1024) +
-	         " KB, lowest " + String(ESP.getMinFreeHeap() / 1024) + " KB), PSRAM " + String(ESP.getFreePsram() / 1024) + " KB free");
-	r->print(F("</td></tr></table>"));
+	           "<tr><td>Board</td><td>WEMOS LOLIN S2 Mini</td></tr></table>"));
+}
+
+// -----------------------------------------------------------------------------
+// buildNetworkDiv
+// NETWORK block (like the Rain Gauge ABOUT page): WiFi network + access point,
+// signal, IP, gateway / subnet, DNS, mDNS name, MAC.  Snapshot at page load.
+// -----------------------------------------------------------------------------
+static void buildNetworkDiv(AsyncResponseStream* r) {
+	r->print(F("<div style='text-align:center;font-weight:800;letter-spacing:2px;color:#0284c7;font-size:15px;margin:14px 0 4px'>NETWORK</div><table>"));
+	r->print("<tr><td>WiFi Network</td><td>" + WiFi.SSID() + (WiFiSource.length() ? " (" + WiFiSource + ")" : String("")) + "</td></tr>");
+	r->print("<tr><td>Access Point</td><td>" + WiFi.BSSIDstr() + " (channel " + String(WiFi.channel()) + ")</td></tr>");
+	r->print("<tr><td>Signal (dBm)</td><td>" + String(WiFi.RSSI()) + "</td></tr>");
+	r->print("<tr><td>IP Address</td><td>" + WiFi.localIP().toString() + "</td></tr>");
+	r->print("<tr><td>Gateway / Subnet</td><td>" + WiFi.gatewayIP().toString() + " / " + WiFi.subnetMask().toString() + "</td></tr>");
+	r->print("<tr><td>DNS</td><td>" + WiFi.dnsIP().toString() + "</td></tr>");
+	r->print(F("<tr><td>mDNS</td><td>http://hydro17.local/</td></tr>"));
+	r->print("<tr><td>MAC Address</td><td>" + WiFi.macAddress() + "</td></tr></table>");
 }
 
 // =============================================================================
@@ -178,6 +187,7 @@ void handleAbout(AsyncWebServerRequest *request) {
 	// PC upload (ArduinoOTA) rows: only with SETTINGS "Show PC Upload (OTA) on
 	// ABOUT".  ArduinoOTA itself stays on either way — hiding is cosmetic.
 	if (Params->ShowOtaInfo) buildAboutTable(response);
+	buildNetworkDiv(response);        // NETWORK (like the Rain Gauge)
 	appendFwUpdateBlock(response);    // FIRMWARE UPDATE (22_Update.cpp)
 	webRebootButton(response);
 	webResetASPButton(response);

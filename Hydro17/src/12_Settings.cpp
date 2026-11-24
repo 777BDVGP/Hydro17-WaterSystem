@@ -153,7 +153,7 @@ void handleSettings(AsyncWebServerRequest *request){
 	WT_SETUP_Settings(response);
 	appendRainGaugeBlock(response);        // live rain-gauge badge + status (17_RainGauge.cpp)
 	response->print(webUpateButton);
-	webWifiEditButton(response);
+	appendWifiNetsSection(response);      // WIFI NETWORKS list + ADD, like the Rain Gauge (05_WiFi.cpp)
 	response->print(webHTMLEnd);
 	request->send(response);
 }
