@@ -153,6 +153,9 @@ static void buildProjectInfoDiv(AsyncResponseStream* r) {
 	r->print(WiFi.localIP().toString());
 	r->print(F("</td></tr><tr><td>MAC</td><td>"));
 	r->print(WiFi.macAddress());
+	r->print(F("</td></tr><tr><td>Memory</td><td>"));
+	r->print(String(ESP.getFreeHeap() / 1024) + " KB free (largest block " + String(ESP.getMaxAllocHeap() / 1024) +
+	         " KB, lowest " + String(ESP.getMinFreeHeap() / 1024) + " KB), PSRAM " + String(ESP.getFreePsram() / 1024) + " KB free");
 	r->print(F("</td></tr></table>"));
 }
 

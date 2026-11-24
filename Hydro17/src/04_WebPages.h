@@ -743,8 +743,15 @@ public:
 //                            starves concurrent WebSocket message allocations.
 //                            Observed crash at m=9204 (hang); safe at m=10228.
 // ─────────────────────────────────────────────────────────────────────────────
-    #define HEAP_FREE_MIN    18000   // getFreeHeap()     — absolute floor
-    #define HEAP_MAXBLK_MIN  10000   // getMaxAllocHeap() — fragmentation floor
+//
+// New core (pioarduino 53.03.13, 2026-11-24): with PSRAM, every malloc larger
+// than CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL (4096) goes to PSRAM — including
+// the CBUF_RESERVE page buffer — so internal RAM only has to hold the small
+// allocations.  The old 18 KB / 10 KB floors made the unit refuse pages (and
+// reboot) after a GitHub firmware check fragmented internal RAM.  Without
+// PSRAM the old floors apply.
+    #define HEAP_FREE_MIN       (psramFound() ? 14000 : 18000)   // getFreeHeap()     — absolute floor
+    #define HEAP_MAXBLK_MIN     (psramFound() ?  4096 : 10000)   // getMaxAllocHeap() — fragmentation floor
     #define CBUF_RESERVE      5120   // AsyncResponseStream initial buffer (bytes)
 
 // ─── Low-Memory Recovery ──────────────────────────────────────────────────────
