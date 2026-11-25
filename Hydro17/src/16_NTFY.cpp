@@ -132,10 +132,10 @@ void MapNtfyPage() {
 				NtfyList[i].Var = new PageElement(&NtfyData->NextChlorineMaintDate,  F("Next Chlorine Maintenance"), "", &NtfyStyle, i + ID_NTFY);
 				break;
 			case NTFY_CODE:
-				NtfyList[i].Var = new PageElement(&NtfyData->NtfyCode,        F("NTFY Topic name"),   "", &NtfyStyle, i + ID_NTFY);
+				NtfyList[i].Var = new PageElement(&NtfyData->NtfyCode,        F("NTFY Topic Name"),   "", &NtfyStyle, i + ID_NTFY);
 				break;
 			case NTFY_PRIORITY:
-				NtfyList[i].Var = new PageElement(&NtfyData->NtfyPriority,    F("NTFY Priority"),     "", &NtfyStyle, i + ID_NTFY);
+				NtfyList[i].Var = new PageElement(&NtfyData->NtfyPriority,    F("Alert Level (on the phone)"), "", &NtfyStyle, i + ID_NTFY);
 				NtfyList[i].Var->SetStringToSelect(5);
 				NtfyList[i].Var->AddOption("min");
 				NtfyList[i].Var->AddOption("low");
@@ -144,7 +144,7 @@ void MapNtfyPage() {
 				NtfyList[i].Var->AddOption("urgent");
 				break;
 			case NTFY_TIME:
-				NtfyList[i].Var = new PageElement(&NtfyData->NtfyMessageTime, F("NTFY Messaging Time"), "", &NtfyStyle, i + ID_NTFY);
+				NtfyList[i].Var = new PageElement(&NtfyData->NtfyMessageTime, F("Daily Reminder Time"), "", &NtfyStyle, i + ID_NTFY);
 				break;
 		}
 	}
@@ -153,7 +153,7 @@ void MapNtfyPage() {
 // ─────────────────────────────────────────────────────────────────────────────
 // handleApplyDate  (GET /applydate?field=X&days=N)
 // Calculates today + N days and stores the result in the matching NtfyData
-// Next*Date field (RAM only — not written to NTFY.json).
+// Next*Date field, and saves it (and N) to NTFY.json at once.
 // The browser JS reloads the page after this returns 200 OK so the new date
 // is immediately visible in the Parameter/Value table.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -185,7 +185,7 @@ void handleApplyDate(AsyncWebServerRequest *request)
 // WT_ApplyDatesTable
 // Returns a self-contained HTML table that lets the user type a number of days
 // and click APPLY to push today + N days into the matching Next*Date field.
-// APPLY only updates RAM; the existing UPDATE button persists to NTFY.json.
+// APPLY saves the new date (and the days) to NTFY.json at once.
 // ─────────────────────────────────────────────────────────────────────────────
 void WT_ApplyDatesTable(AsyncResponseStream* response)
 {
@@ -253,6 +253,55 @@ void WT_ApplyDatesTable(AsyncResponseStream* response)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// appendNtfyHelp
+// Explanation box at the top of the NTFY page for a first-time user (same
+// style as the Rain Gauge NTFY page): phone setup, then how the maintenance
+// reminders, the APPLY table and the settings below work together.
+// ─────────────────────────────────────────────────────────────────────────────
+static void appendNtfyHelp(AsyncResponseStream* r)
+{
+	// Tick box shows / hides the help; the choice is remembered in this browser
+	// (localStorage) — ticked the first time, so a new user sees it at once.
+	r->print(F("<div style='margin:8px 0 0;font-size:13px;text-align:left'><label>"
+	           "<input type='checkbox' id='ntfyhelpcb' checked onchange='ntfyHelp(this.checked,1)'> "
+	           "Show help (how NTFY works)</label></div>"
+	           "<div id='ntfyhelp' style='background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:8px 10px;margin:4px 0 8px;font-size:12px;line-height:1.5;color:#334155;text-align:left'>"
+	           "<b style='color:#0284c7'>Maintenance reminders on your phone with NTFY (free, no account needed)</b>"
+	           "<div style='margin-top:4px'><b>1. Set up the phone</b></div>"
+	           "<ol style='margin:2px 0 4px 18px;padding:0'>"
+	           "<li>Install the <b>ntfy</b> app on the phone (Google Play / App Store, by Philipp Heckel).</li>"
+	           "<li>Make up a <b>topic name</b>: letters, numbers, - and _ only, no spaces, e.g. <i>hydro17-smith-7342</i>. "
+	           "Anyone who knows the name can read the messages, so make it hard to guess.</li>"
+	           "<li>In the app tap <b>+</b> (Subscribe to topic), type <b>exactly the same name</b> "
+	           "(upper / lower case matters), server <i>ntfy.sh</i>, and subscribe.</li>"
+	           "<li>Type the same name in <b>NTFY Topic Name</b> below, choose the <b>Alert Level</b>, press <b>UPDATE</b>, "
+	           "then <b>TEST NTFY</b> &mdash; the test message must appear on the phone.</li>"
+	           "</ol>"
+	           "<div><b>2. How the reminders work</b></div>"
+	           "<div style='margin:2px 0 4px 6px'>"
+	           "<div style='padding-left:12px;text-indent:-12px'>&bull; Each maintenance job below has a <b>Next &hellip; date</b>: pool backwash, tank backwash, flushing the "
+	           "hydrocyclone, replacing the blue filter, the UV tube and pool chlorine.</div>"
+	           "<div style='padding-left:12px;text-indent:-12px'>&bull; Every day at the <b>Daily Reminder Time</b> the controller checks all dates. Every job that is due "
+	           "(the date is today or has passed) goes into <b>one</b> message, together with a warning when the tank "
+	           "filter pressure is too high.</div>"
+	           "<div style='padding-left:12px;text-indent:-12px'>&bull; The message comes <b>again every day</b> until you set a new date for that job &mdash; so it cannot be forgotten.</div>"
+	           "<div style='padding-left:12px;text-indent:-12px'>&bull; <b>After doing a job:</b> in the <b>Since Today</b> table type the number of days until the next time "
+	           "(e.g. 14 for the pool backwash) and press <b>APPLY</b>. The next date becomes today + those days and is saved "
+	           "at once; the number of days is remembered for next time. You can also type a date straight into the "
+	           "<b>Next &hellip;</b> rows and press <b>UPDATE</b>.</div>"
+	           "<div style='padding-left:12px;text-indent:-12px'>&bull; The due dates are also shown on the HOME page.</div>"
+	           "</div>"
+	           "<b>Alert Level:</b> <i>urgent</i> = long vibration and sound, even in Do Not Disturb (if the app allows it); "
+	           "<i>high</i> = sound and pop-up; <i>default</i> = normal notification; <i>low</i> = no sound; "
+	           "<i>min</i> = silent, only in the list. Several phones can subscribe to the same topic."
+	           "</div>"
+	           "<script>function ntfyHelp(on,save){document.getElementById('ntfyhelp').style.display=on?'block':'none';"
+	           "if(save){try{localStorage.setItem('ntfyHelp',on?'1':'0');}catch(e){}}}"
+	           "(function(){var on=true;try{on=localStorage.getItem('ntfyHelp')!=='0';}catch(e){}"
+	           "document.getElementById('ntfyhelpcb').checked=on;ntfyHelp(on,0);})();</script>"));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // handleNtfy  (GET /ntfy)
 // Serves the NTFY configuration page HTML.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -264,6 +313,7 @@ void handleNtfy(AsyncWebServerRequest *request) {
 	append_FileOption(Delmess, response);
 	append_UL_OptionsMenu(PS_NTFY, response);
 	response->print(webScriptTag);
+	appendNtfyHelp(response);
 	WT_ApplyDatesTable(response);
 	WT_SETUP_Ntfy(response);
 	response->print(webUpateButton);

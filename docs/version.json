@@ -1,5 +1,5 @@
 {
-  "version": "2.0.3",
+  "version": "2.0.4",
   "bin": "firmware/hydro17.bin",
-  "notes": "WiFi Networks with networks-in-range list on SETTINGS; NETWORK block on ABOUT"
+  "notes": "NTFY page: Show help (how NTFY works) tick box"
 }
