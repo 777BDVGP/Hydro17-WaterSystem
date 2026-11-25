@@ -85,7 +85,7 @@
 	byte WeekDay = 4; // Initialised to Wednesday (2020-07-01 anchor); updated at midnight
 
 // ─── Midnight Reboot Flag ─────────────────────────────────────────────────────
-// Set at 00:01 by MaintainMidnightReboot(); cleared on every power-on/reboot
-// because it lives in RAM.  Reboot fires at 00:05 only when the flag is true,
-// guaranteeing exactly one scheduled reboot per night.
+// Armed by MaintainMidnightReboot() outside the reboot minute; cleared on every
+// power-on/reboot because it lives in RAM.  The reboot (SETTINGS time, default
+// 00:05) fires only when the flag is true: exactly one scheduled reboot per night.
 	bool MidnightRebootFlag = false;

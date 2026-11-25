@@ -42,6 +42,7 @@ void AllParams::WriteData()
 	doc["NormalOperationSaved"] = NormalOperationSaved;
 	doc["KeepAliveEnabled"] = KeepAliveEnabled;
 	doc["MidnightRebootEnabled"] = MidnightRebootEnabled;
+	doc["MidnightRebootTime"] = MidnightRebootTime;
 	doc["RainGaugeEnable"] = RainGaugeEnable;
 	doc["RainGaugeURL"] = RainGaugeURL;
 	doc["ShowOtaInfo"] = ShowOtaInfo;
@@ -78,6 +79,7 @@ void AllParams::ReadData()
 				if ( doc["NormalOperationSaved"].as<String>() != "null" ){if(doc["NormalOperationSaved"].as<String>() == "true") {NormalOperationSaved = true;}else{NormalOperationSaved = false;}}	 				
 				if ( !doc["KeepAliveEnabled"].isNull() ) { KeepAliveEnabled = doc["KeepAliveEnabled"].as<bool>(); }
 				if ( !doc["MidnightRebootEnabled"].isNull() ) { MidnightRebootEnabled = doc["MidnightRebootEnabled"].as<bool>(); }
+				if ( !doc["MidnightRebootTime"].isNull() )    { MidnightRebootTime    = doc["MidnightRebootTime"].as<String>(); }
 				if ( !doc["RainGaugeEnable"].isNull() ) { RainGaugeEnable = doc["RainGaugeEnable"].as<bool>(); }
 				if ( !doc["RainGaugeURL"].isNull() )    { RainGaugeURL    = doc["RainGaugeURL"].as<String>(); }
 				if ( !doc["ShowOtaInfo"].isNull() )     { ShowOtaInfo     = doc["ShowOtaInfo"].as<bool>(); }
@@ -126,16 +128,19 @@ void MapSettingsPage(){
 				SettingsList[i].Var = new PageElement(&Params->KeepAliveEnabled, F("Keepalive Ping Enabled"), "", &SetStyle, i+ID_SETTINGS);
 				break;
 			case SET_MIDNIGHT_REBOOT:
-				SettingsList[i].Var = new PageElement(&Params->MidnightRebootEnabled, F("Midnight Reboot (00:05)"), "", &SetStyle, i+ID_SETTINGS);
+				SettingsList[i].Var = new PageElement(&Params->MidnightRebootEnabled, F("Nightly Reboot at"), "", &SetStyle, i+ID_SETTINGS);
 				break;
 			case SET_RAINGAUGE_EN:
-				SettingsList[i].Var = new PageElement(&Params->RainGaugeEnable, F("Use Rain Gauge"), "", &SetStyle, i+ID_SETTINGS);
+				SettingsList[i].Var = new PageElement(&Params->RainGaugeEnable, F("Use Rain Gauge at IP"), "", &SetStyle, i+ID_SETTINGS);
 				break;
 			case SET_RAINGAUGE_URL:
 				SettingsList[i].Var = new PageElement(&Params->RainGaugeURL, F("Rain Gauge IP"), "", &SetStyle, i+ID_SETTINGS);
 				break;
 			case SET_SHOW_OTA:
 				SettingsList[i].Var = new PageElement(&Params->ShowOtaInfo, F("Show PC Upload (OTA) on ABOUT"), "", &SetStyle, i+ID_SETTINGS);
+				break;
+			case SET_REBOOT_TIME:   // shown in the "Nightly Reboot at" row, right of the tick box
+				SettingsList[i].Var = new PageElement(&Params->MidnightRebootTime, F("Nightly Reboot Time"), "", &SetStyle, i+ID_SETTINGS);
 				break;
 		}
 	}
@@ -166,6 +171,10 @@ void WT_SETUP_Settings(AsyncResponseStream* response){
 
 	for (int i=0; i < PAGE_VAR_SETTINGS; i++)
 	{
+		// Tick box + field on one row: nightly reboot + its time, rain gauge + its IP
+		if (i == SET_MIDNIGHT_REBOOT) { WT_CheckEditRow(&SettingsList[SET_MIDNIGHT_REBOOT], &SettingsList[SET_REBOOT_TIME], "time"); continue; }
+		if (i == SET_RAINGAUGE_EN)    { WT_CheckEditRow(&SettingsList[SET_RAINGAUGE_EN], &SettingsList[SET_RAINGAUGE_URL]); continue; }
+		if (i == SET_REBOOT_TIME || i == SET_RAINGAUGE_URL) continue;   // already in the rows above
 		WT_EditRow(&SettingsList[i]);
 	}
 
@@ -197,6 +206,13 @@ void MaintainSettingsPageValues(){
 				SettingsList[i].Var->SetName(String(kv.value().as<const char*>()));	 
 			}	
 		}	
+	}
+	// Reboot time must be "HH:MM" (an emptied time field -> back to 00:05)
+	{
+		const String& t = Params->MidnightRebootTime;
+		bool ok = t.length() == 5 && t[2] == ':' && isDigit(t[0]) && isDigit(t[1]) && isDigit(t[3]) && isDigit(t[4])
+		          && t.substring(0, 2).toInt() < 24 && t.substring(3).toInt() < 60;
+		if (!ok) Params->MidnightRebootTime = "00:05";
 	}
 	WebMessUpdate(num, "Parameters Updated!", "color: red", true);
 	Params->WriteData();

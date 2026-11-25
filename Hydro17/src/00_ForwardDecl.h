@@ -118,6 +118,7 @@ void WT_Column(int WT_Type, int WT_Begin, int WT_Finish, const char* Type, const
 void WT_AutoColumn(int WT_Type, int WT_Begin, int WT_Finish, PageVar* pv, const char* IDPrefix = "", const char* ExtraAttrs = "");
 void WT_DisplayRow(PageVar* pv);
 void WT_EditRow(PageVar* pv, const char* typeOverride = "", const char* ExtraAttrs = "");
+void WT_CheckEditRow(PageVar* chk, PageVar* edit, const char* editType = "");
 void WT_StartPage();
 void WT_EndPage();
 void WT_EndPageClass(const char* cls);

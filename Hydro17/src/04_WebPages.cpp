@@ -453,6 +453,33 @@ void WT_EditRow(PageVar* pv, const char* typeOverride, const char* ExtraAttrs){
 	}
 	appendToPageBuf("}],},");
 }
+// ─── WT_CheckEditRow — label, then tick box + field together in one cell ─────
+// e.g. "Nightly Reboot at  [x] [00:05]".  Both keep their own id, so UPDATE and
+// the live websocket updates work exactly as for two separate rows.
+static void WT_InputObj(PageVar* pv, const char* type, const char* extraStyle){
+	appendToPageBuf("{");
+	WT_TypeCell(type);
+	WT_ValueInput(pv->Var->GetName().c_str());
+	WT_IDCell(pv->Var->GetID("").c_str());
+	WT_AttrsStart();
+	String st = pv->Var->GetFStyle(); st += extraStyle;
+	WT_Attr("style", st.c_str());
+	WT_AttrsEnd();
+	appendToPageBuf("}");
+}
+void WT_CheckEditRow(PageVar* chk, PageVar* edit, const char* editType){
+	String et = (editType && editType[0]) ? String(editType) : edit->Var->GetTypeStr();
+	appendToPageBuf("{grouped:true,labels:[{");
+	WT_TypeCell("text");
+	WT_TextLabel(chk->Var->GetDescription().c_str());
+	WT_IDCell(chk->Var->GetID("L").c_str());
+	WT_AttrsStart(); WT_Attr("style",chk->Var->GetFStyle().c_str()); WT_AttrsEnd();
+	appendToPageBuf("}],inputs:[");
+	WT_InputObj(chk, "checkbox", ";vertical-align:middle");
+	appendToPageBuf(",");
+	WT_InputObj(edit, et.c_str(), ";vertical-align:middle;margin-left:6px");
+	appendToPageBuf("],},");
+}
 ////// END - Page generation for a table //////
 
 //  options: ["SYSTEM A", "NEW SYSTEM", "OLD SYSTEM"],

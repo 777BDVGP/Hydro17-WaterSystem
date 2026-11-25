@@ -9,21 +9,25 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MaintainMidnightReboot  (called every 10 ms from MaintainTimeCheck)
-// Implements a two-step nightly scheduled reboot:
-//   Step 1 — at 00:01 the RAM flag MidnightRebootFlag is set to true.
-//   Step 2 — at 00:05, if the flag is true, the device reboots.
-// Because MidnightRebootFlag is never persisted to SPIFFS it resets to false
-// on every boot, so a device that rebooted near midnight (OTA, watchdog, etc.)
-// will not reboot a second time when it reaches 00:05.
-// Disabled by Params->MidnightRebootEnabled (Settings page).
+// Nightly scheduled reboot at Params->MidnightRebootTime ("HH:MM", SETTINGS,
+// default 00:05):
+//   Step 1 — any minute other than the reboot time arms the RAM flag
+//            MidnightRebootFlag (only once the clock is set and the unit has
+//            been up for 2 minutes).
+//   Step 2 — at the reboot time, if the flag is true, the device reboots.
+// The flag is RAM only, so after the reboot it is false again and the unit
+// cannot reboot twice in the same minute.
+// Disabled by Params->MidnightRebootEnabled (SETTINGS tick box).
 // ─────────────────────────────────────────────────────────────────────────────
 void MaintainMidnightReboot() {
 	if (!Params->MidnightRebootEnabled) { MidnightRebootFlag = false; return; }
+	if (time(nullptr) < 1600000000) return;   // clock not set yet
 	String t = GetCurrentTime();   // "HH:MM"
-	if (t == "00:01") {
-		MidnightRebootFlag = true;
+	if (t != Params->MidnightRebootTime) {
+		if (millis() > 120000UL) MidnightRebootFlag = true;
+		return;
 	}
-	if (t == "00:05" && MidnightRebootFlag) {
+	if (MidnightRebootFlag) {
 		SaveGenReport("REBOOT - Scheduled midnight reboot");
 		delay(100);
 		ESP.restart();
@@ -49,7 +53,7 @@ void MaintainTimeCheck() {
 	LEDToggle();              // LED heartbeat + WiFi credential reset check (01_Main.cpp)
 	MaintainTimers();         // Expire elapsed software timers            (02_Time.cpp)
 	PinDebounce();            // Debounce all digital inputs                (05_ThisSystem.cpp)
-	MaintainMidnightReboot(); // Scheduled nightly reboot at 00:05         (02_Time.cpp)
+	MaintainMidnightReboot(); // Scheduled nightly reboot (SETTINGS time)  (02_Time.cpp)
 	MaintainGatewayWatch();   // KEEPALIVE ping + reboot if target silent 5 min (01_Main.cpp) — do NOT remove
 	MaintainWifiNets();       // Apply WiFi network ADD / DELETE from the /wifi page (05_WiFi.cpp)
 	MaintainRainGauge();      // RAIN_OK_DO_IRRI from the rain gauge, polled hourly (17_RainGauge.cpp)

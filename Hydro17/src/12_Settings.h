@@ -21,7 +21,8 @@
 //   NextXxxDate              — scheduled maintenance due dates (YYYY-MM-DD)
 //   NormalOperationSaved     — persists the last NormalOperation state
 //   KeepAliveEnabled         — gateway keepalive ping on/off
-//   MidnightRebootEnabled    — scheduled 00:05 nightly reboot on/off
+//   MidnightRebootEnabled    — scheduled nightly reboot on/off
+//   MidnightRebootTime       — time of that reboot, "HH:MM" (default 00:05)
 // =============================================================================
 class AllParams
 {
@@ -53,7 +54,8 @@ public:
 	bool   KeepAliveEnabled = true;    // Keepalive ping + reboot guard on/off
 
 	// ── Scheduled Nightly Reboot (MaintainMidnightReboot, 02_Time.cpp) ───────
-	bool   MidnightRebootEnabled = true;   // Reboot every night at 00:05
+	bool   MidnightRebootEnabled = true;   // Reboot every night at MidnightRebootTime
+	String MidnightRebootTime    = "00:05";  // "HH:MM" - set on SETTINGS (time field next to the tick box)
 
 	// ── Rain gauge (17_RainGauge.cpp) — sets RAIN_OK_DO_IRRI hourly ─────────
 	bool   RainGaugeEnable  = false;                  // false -> RAIN_OK_DO_IRRI always true
@@ -81,8 +83,9 @@ private:
 	#define SET_RAINGAUGE_EN          8   // Use Rain Gauge checkbox
 	#define SET_RAINGAUGE_URL         9   // Rain Gauge IP
 	#define SET_SHOW_OTA             10   // ABOUT: show PC-upload (OTA) rows
+	#define SET_REBOOT_TIME          11   // nightly reboot time (shown in the SET_MIDNIGHT_REBOOT row)
 
-	#define PAGE_VAR_SETTINGS     11   // Total PageVar entries in SettingsList
+	#define PAGE_VAR_SETTINGS     12   // Total PageVar entries in SettingsList
 
 // ─── Static Page Build Buffer ─────────────────────────────────────────────────
 // 8 KB fixed buffer used by several page builders as an alternative to
